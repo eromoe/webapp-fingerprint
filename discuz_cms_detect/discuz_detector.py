@@ -1,6 +1,5 @@
 #coding=utf-8
 import requests
-from bs4 import BeautifulSoup
 import re
 from discuz_feature import matches
 '''
@@ -11,23 +10,12 @@ Discuz 指纹识别
 '''
 class DiscuzDetector():
 	'''构造方法'''
-	def __init__(self,url):
-		if url.startswith("http://"):
-			self.url = url
-		else:
-			self.url = "http://%s" % url
-		try:
-			self.r = requests.get(self.url,timeout=8)
-			self.page_content = self.r.content
-		except Exception, e:
-			print e
-			self.r = None
-			self.page_content = None
-		
+	def __init__(self, content):
+
+        self.page_content = content
+
 	'''识别meta标签'''
 	def meta_detect(self):
-		if not self.r:
-			return False
 		pattern = re.compile(r'<meta name=".*?" content="(.+)" />')
 		infos = pattern.findall(self.page_content)
 		conditions = matches['meta'][0] or matches['meta'][1]
@@ -42,8 +30,6 @@ class DiscuzDetector():
 
 	'''discuz 版本识别 xx-->7.0  Xx---->X2.5'''
 	def robots_dz_xx_detect(self):
-		if not self.r:
-			return (False,None)
 		robots_url = "%s%s" % (self.url,"/robots.txt")
 		robots_content = requests.get(robots_url).content
 		if not robots_content:
@@ -80,11 +66,8 @@ class DiscuzDetector():
 		return (False,None)
 
 
-
 	'''检测网页中的discuz字样'''
 	def detect_intext(self):
-		if not self.r:
-			return False
 		text_feature = matches['intext'][0] or matches['intext'][1]
 		if self.page_content.count(text_feature) != 0:
 			return True
@@ -93,26 +76,37 @@ class DiscuzDetector():
 
 
 	'''判别方法'''
-	def get_result(self):
-		if not self.r:
-			return (False,'Not Discuz!')
+	def get_result(self, detect_version=False):
 		is_meta = self.meta_detect()
-		res = self.robots_dz_xx_detect()
-		is_dz_robots = res[0]
-		version_info = res[1]
-		print version_info
 		is_intext = self.detect_intext()
 
-		if is_meta or is_dz_robots or is_intext:
+        is_discuz = False
+
+        if detect_version:
+            res = self.robots_dz_xx_detect()
+            is_dz_robots = res[0]
+            version_info = res[1]
+            print version_info
+
+            if is_meta or is_dz_robots or is_intext:
+                is_discuz = True
+        else:
+            is_dz_robots = False
+            version_info = None
+
+            if is_meta or is_intext:
+                is_discuz = True
+
+        if is_discuz:
 			#print 'Find Discuz!'
 			if version_info:
 				# return (True,'Find! Version:%s' % (version_info[0]))
 				return (True,'%s' % (version_info[0]))
 			else:
-				return (True,'Version:Unknown') 
+				return (True,'Version:Unknown')
 		else:
 			return (False,'Not Discuz!')
-    	
+
 
 if __name__ == '__main__':
 	#url = 'http://www.waterok.com/bbs/'
@@ -149,9 +143,3 @@ if __name__ == '__main__':
 			continue
 	wf.close()
 	f.close()
-
-
-	
-
-
-
